@@ -7,8 +7,8 @@ struct Cli {
     #[doc = "Path to file that contain text"]
     #[clap(short, long)]
     file: PathBuf,
-    #[doc = "Count of written words that required to get results. If len(words) < count, same text used"]
-    #[clap(short, long, default_value_t = 100)]
+    #[doc = "Count of written characters that required to get results. If count == 0, whole text used. If len(characters) < count, same text used repeatly"]
+    #[clap(short, long, default_value_t = 0)]
     count: usize,
 }
 
@@ -22,25 +22,34 @@ impl Cli {
         })?)
         .map_err(|_| "Cannot convert file contents into valid UTF-8 string".into())
     }
+}
 
-    fn get_count(&self) -> Result<usize, String> {
-        if self.count == 0 {
-            Err("Count must be positive integer")?
-        }
-        Ok(self.count)
+fn play(text: &str) {
+    loop {
+        
     }
 }
 
 fn main0() -> Result<(), String> {
     let cli = Cli::parse();
-    let text = cli.get_file_contents()?;
-    let count = cli.get_count()?;
+    let mut text = cli.get_file_contents()?;
+    if cli.count != 0 {
+        if text.len() < cli.count {
+            let source = text.clone();
+            let text_repeat = (cli.count - source.len()) / source.len();
+            text.push_str(&[" ", &source].concat().repeat(text_repeat));
+            text.push_str(&[" ", &source[..(cli.count - text.len() - 1)]].concat());
+        } else if text.len() > cli.count {
+            text = [" ", &text[..cli.count]].concat();
+        }
+    }
+    play(text.as_str());
     Ok(())
 }
 
 fn main() {
     drop(main0().inspect_err(|err| {
-        println!("{err}");
+        eprintln!("{err}");
         exit(1)
     }));
 }
