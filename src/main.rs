@@ -3,7 +3,7 @@ use std::{
     io::stdout,
     path::PathBuf,
     process::exit,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use clap::Parser;
@@ -40,14 +40,16 @@ impl Cli {
 enum State {
     PressEnterToStart,
     PreGame,
-    Game { start_time: u64, pos: usize },
+    Game { start_time: u128, pos: usize },
+    Result { start_time: u128, end_time: u128 },
 }
 
-fn get_current_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+fn get_current_duration() -> Duration {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
+}
+
+fn calculate_wpm(text_len: usize, start_time: u128, end_time: u128) -> f64 {
+    text_len as f64 / ((end_time as f64 / 60000.) - (start_time as f64 / 60000.))
 }
 
 fn play(text: &str) {
@@ -85,7 +87,7 @@ fn play(text: &str) {
                 {
                     execute!(stdout(), Print(current_char.to_string().green())).unwrap();
                     state = State::Game {
-                        start_time: get_current_seconds(),
+                        start_time: get_current_duration().as_millis(),
                         pos: 1,
                     };
                 }
@@ -104,7 +106,30 @@ fn play(text: &str) {
                     )
                     .unwrap();
                     *pos += 1;
+                    if *pos == text.len() {
+                        state = State::Result {
+                            start_time,
+                            end_time: get_current_duration().as_millis(),
+                        }
+                    }
                 }
+            }
+            State::Result {
+                start_time,
+                end_time,
+            } => {
+                dbg!(start_time, end_time);
+                execute!(
+                    stdout(),
+                    MoveTo(0, 2),
+                    Clear(ClearType::FromCursorDown),
+                    Print(format!(
+                        "WPM: {}",
+                        (calculate_wpm(text.len(), start_time, end_time) * 10.).round() / 10.,
+                    ))
+                )
+                .unwrap();
+                break;
             }
         }
     }
