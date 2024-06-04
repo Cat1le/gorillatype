@@ -1,6 +1,19 @@
-use std::{fs, path::PathBuf, process::exit};
+use std::{
+    fs,
+    io::stdout,
+    path::PathBuf,
+    process::exit,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use clap::Parser;
+use crossterm::{
+    cursor::MoveTo,
+    event::{self, Event, KeyCode},
+    execute,
+    style::{Print, Stylize},
+    terminal::{Clear, ClearType},
+};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -24,9 +37,76 @@ impl Cli {
     }
 }
 
+enum State {
+    PressEnterToStart,
+    PreGame,
+    Game { start_time: u64, pos: usize },
+}
+
+fn get_current_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
 fn play(text: &str) {
+    let mut state = State::PressEnterToStart;
     loop {
-        
+        match state {
+            State::PressEnterToStart => {
+                execute!(
+                    stdout(),
+                    Clear(ClearType::All),
+                    MoveTo(0, 0),
+                    Print("GorillaType v0.1"),
+                    MoveTo(0, 2),
+                    Print(format!("Press {} to start", "Space".blue()))
+                )
+                .unwrap();
+                if matches!(event::read().unwrap(), Event::Key(key) if key.code == KeyCode::Char(' '))
+                {
+                    state = State::PreGame;
+                }
+            }
+            State::PreGame => {
+                execute!(
+                    stdout(),
+                    Clear(ClearType::All),
+                    MoveTo(0, 0),
+                    Print("GorillaType v0.1"),
+                    MoveTo(0, 2),
+                    Print(text.dark_grey()),
+                    MoveTo(0, 2)
+                )
+                .unwrap();
+                let current_char = text.chars().next().unwrap();
+                if matches!(event::read().unwrap(), Event::Key(key) if key.code == KeyCode::Char(current_char))
+                {
+                    execute!(stdout(), Print(current_char.to_string().green())).unwrap();
+                    state = State::Game {
+                        start_time: get_current_seconds(),
+                        pos: 1,
+                    };
+                }
+            }
+            State::Game {
+                start_time,
+                ref mut pos,
+            } => {
+                let current_char = text.chars().nth(*pos).unwrap();
+                if matches!(event::read().unwrap(), Event::Key(key) if key.code == KeyCode::Char(current_char))
+                {
+                    execute!(
+                        stdout(),
+                        MoveTo(*pos as u16, 2),
+                        Print(current_char.to_string().green())
+                    )
+                    .unwrap();
+                    *pos += 1;
+                }
+            }
+        }
     }
 }
 
