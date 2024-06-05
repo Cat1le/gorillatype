@@ -118,7 +118,6 @@ fn play(text: &str) {
                 start_time,
                 end_time,
             } => {
-                dbg!(start_time, end_time);
                 execute!(
                     stdout(),
                     MoveTo(0, 2),
